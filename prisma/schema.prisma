@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RideStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum RideSource {
+  MANUAL_PASTE
+  MANUAL_ENTRY
+  OTHER
+}
+
+model User {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  name                String?
+  reminderLeadMinutes Int      @default(120)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  rides Ride[]
+}
+
+model Ride {
+  id      String @id @default(cuid())
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
+
+  pickupDateTime  DateTime
+  pickupLocation  String
+  dropoffLocation String?
+  clientName      String
+  clientPhone     String?
+  price           Float?
+  notes           String?
+
+  passengerCount Int?
+  flightNumber   String?
+
+  status RideStatus @default(CONFIRMED)
+  source RideSource @default(MANUAL_PASTE)
+
+  rawText String
+
+  reminderSent   Boolean   @default(false)
+  reminderSentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, pickupDateTime])
+  @@index([reminderSent, pickupDateTime])
+}
