@@ -3,7 +3,11 @@ import type { NextRequest } from "next/server";
 import { unsealData } from "iron-session";
 import { sessionOptions, type SessionData } from "@/lib/session";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout"];
+// Percorsi che NON passano dal controllo di sessione.
+// /api/cron ha una protezione propria (CRON_SECRET): deve restare fuori da
+// qui, altrimenti il servizio di cron esterno riceve la pagina di login e i
+// promemoria non partono mai, senza alcun errore visibile.
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/cron"];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gestionale Corse NCC
 
-## Getting Started
+Applicazione web per organizzare le corse di un servizio NCC (noleggio con
+conducente) che riceve prenotazioni da fonti diverse — email, app di
+prenotazione, messaggi dei clienti — e non ha un posto unico dove vederle.
 
-First, run the development server:
+Si incolla il testo della prenotazione così com'è: i campi riconoscibili
+vengono compilati automaticamente, si controlla e si salva. La corsa finisce
+nel calendario e prima della partenza arriva un promemoria via email.
+
+## Cosa fa
+
+- **Inserimento da testo incollato.** Un parser a regole estrae data, ora,
+  luoghi, cliente, telefono, prezzo, passeggeri e volo dai formati più comuni.
+  Nulla viene salvato senza conferma: i campi non riconosciuti restano vuoti ed
+  evidenziati, da completare a mano.
+- **Calendario** con viste mese, settimana ed elenco. Toccando una corsa si
+  aprono i dettagli, con il numero del cliente cliccabile per chiamarlo.
+- **Promemoria via email** prima di ogni corsa, con anticipo configurabile.
+  Nessun doppio invio, e nessun promemoria per corse ormai passate.
+- **Accesso protetto** da password.
+
+## Come è fatta
+
+| Ambito | Scelta |
+|---|---|
+| Framework | Next.js (App Router) + TypeScript |
+| Database | PostgreSQL via Prisma |
+| Interfaccia | Tailwind CSS |
+| Calendario | FullCalendar |
+| Email | Nodemailer (SMTP) |
+| Accesso | iron-session, password condivisa |
+
+Il fuso orario è gestito esplicitamente su `Europe/Rome`: gli orari si salvano
+in UTC e si convertono solo in visualizzazione, così l'ora legale non sposta le
+corse.
+
+## Avvio in locale
+
+Servono **Node.js 20+** e un database PostgreSQL (va bene il piano gratuito di
+[Neon](https://neon.tech)).
 
 ```bash
+git clone https://github.com/VickthorMBM/gestionale-corse-ncc.git
+cd gestionale-corse-ncc
+npm install
+cp .env.example .env      # poi compila i valori
+npx prisma migrate deploy # crea le tabelle
+npm run db:seed           # crea l'utente
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+L'app risponde su `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Per i promemoria serve un secondo terminale:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run worker
+```
 
-## Learn More
+Le variabili d'ambiente sono documentate una per una in
+[`.env.example`](.env.example).
 
-To learn more about Next.js, take a look at the following resources:
+## Pubblicazione online
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+L'app è pensata per stare su un hosting serverless (Vercel), dove non esistono
+processi sempre attivi. Per questo la logica dei promemoria vive in
+[`src/lib/reminders.ts`](src/lib/reminders.ts) ed è richiamata da due punti:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- in locale, dal worker `npm run worker`;
+- online, dall'endpoint `GET /api/cron/reminders`, protetto da `CRON_SECRET`.
 
-## Deploy on Vercel
+Online l'endpoint va chiamato periodicamente (ogni 15 minuti è un buon
+compromesso) da un servizio di cron esterno, passando l'intestazione:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+Authorization: Bearer <CRON_SECRET>
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+I cron inclusi nel piano gratuito di Vercel non bastano: girano **una volta al
+giorno** e con un'imprecisione fino a un'ora.
+
+### Variabili da impostare sull'hosting
+
+Tutte quelle di `.env.example` tranne `REMINDER_POLL_INTERVAL_CRON`, che serve
+solo al worker locale.
+
+## Struttura
+
+```
+src/
+  app/            pagine e API
+    api/cron/     endpoint dei promemoria
+  components/     interfaccia (calendario, form, intestazione)
+  lib/
+    parser.ts     estrazione dei dati dal testo incollato
+    reminders.ts  logica dei promemoria
+    timezone.ts   conversioni Europe/Rome
+worker/           worker per l'esecuzione in locale
+prisma/           schema e migrazioni
+scripts/          utilità (seed, elenco corse, test del parser)
+```
+
+## Estendere il parser
+
+Ogni piattaforma di prenotazione usa un formato suo. Per aggiungerne una,
+bastano le sue etichette negli array `LABELS_*` in
+[`src/lib/parser.ts`](src/lib/parser.ts).
+
+Per provare le modifiche su testi di esempio:
+
+```bash
+npx tsx scripts/test-parser.ts
+```
+
+## Sviluppi previsti
+
+- Account separati per più utenti (lo schema è già predisposto: ogni corsa è
+  legata al suo proprietario)
+- Statistiche su incassi e corse per periodo

@@ -49,3 +49,7 @@ next-env.d.ts
 
 # prisma generated client (rigenerato dal build)
 /src/generated
+.env.production.import
+
+.vercel
+.env*
