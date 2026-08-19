@@ -214,11 +214,21 @@ function toAmount(raw: string): number | null {
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
+const NUMERI_SCRITTI: Record<string, number> = {
+  un: 1, uno: 1, una: 1, due: 2, tre: 3, quattro: 4, cinque: 5,
+  sei: 6, sette: 7, otto: 8, nove: 9, dieci: 10,
+};
+const NUMERO_SCRITTO_RE = "(un[oa]?|due|tre|quattro|cinque|sei|sette|otto|nove|dieci)";
+
 function parsePassengers(text: string): number | null {
   const labeled = findLabeled(text, LABELS_PAX);
   if (labeled) {
     const fromLabel = labeled.match(/\b(\d{1,2})\b/);
     if (fromLabel) return toCount(fromLabel[1]);
+
+    // Etichetta seguita dal numero scritto in lettere: "Passeggeri: quattro"
+    const spelledLabel = labeled.match(new RegExp(`\\b${NUMERO_SCRITTO_RE}\\b`, "i"));
+    if (spelledLabel) return NUMERI_SCRITTI[spelledLabel[1].toLowerCase()] ?? null;
   }
 
   // "3 passeggeri", "2 pax", "4 persone"
@@ -230,16 +240,8 @@ function parsePassengers(text: string): number | null {
   if (after) return toCount(after[1]);
 
   // Numero scritto in lettere: "due passeggeri", "tre persone"
-  const spelled = text.match(
-    /\b(un[oa]?|due|tre|quattro|cinque|sei|sette|otto|nove|dieci)\s+(?:passegger\w*|person[ae]|pax|adult[oi])\b/i
-  );
-  if (spelled) {
-    const numeri: Record<string, number> = {
-      un: 1, uno: 1, una: 1, due: 2, tre: 3, quattro: 4, cinque: 5,
-      sei: 6, sette: 7, otto: 8, nove: 9, dieci: 10,
-    };
-    return numeri[spelled[1].toLowerCase()] ?? null;
-  }
+  const spelled = text.match(new RegExp(`\\b${NUMERO_SCRITTO_RE}\\s+(?:passegger\\w*|person[ae]|pax|adult[oi])\\b`, "i"));
+  if (spelled) return NUMERI_SCRITTI[spelled[1].toLowerCase()] ?? null;
 
   return null;
 }
@@ -250,14 +252,14 @@ function toCount(raw: string): number | null {
 }
 
 function parseFlight(text: string): string | null {
-  const labeled = findLabeled(text, LABELS_FLIGHT);
-  const haystack = labeled ?? text;
-
-  const keyed = haystack.match(/\b(?:volo|flight)\s*(?:n\.?|numero)?\s*[:.]?\s*([A-Z]{2}\s?\d{1,4})\b/i);
+  // Cerca sempre nel testo intero: se si usasse solo il valore già estratto
+  // dall'etichetta, la parola "volo"/"flight" richiesta qui sotto sarebbe
+  // già stata tagliata via da findLabeled.
+  const keyed = text.match(/\b(?:volo|flight)\s*(?:n\.?|numero)?\s*[:.]?\s*([A-Z]{2,3}\s?\d{1,4})\b/i);
   if (keyed) return keyed[1].toUpperCase().replace(/\s+/g, "");
 
-  // Codice IATA nudo: due lettere maiuscole + numero (es. AZ123, FR1234)
-  const bare = text.match(/\b([A-Z]{2}\d{2,4})\b/);
+  // Codice nudo: 2 lettere IATA (AZ123) o 3 lettere ICAO (EZY8421, RYR4567)
+  const bare = text.match(/\b([A-Z]{2,3}\d{2,4})\b/);
   if (bare) return bare[1].toUpperCase();
 
   return null;

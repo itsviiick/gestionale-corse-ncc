@@ -37,6 +37,19 @@ Destinazione: Aeroporto Capodichino`,
     nome: "Testo povero (quasi nulla di riconoscibile)",
     testo: `mi serve una macchina la prossima settimana, ti chiamo`,
   },
+  {
+    nome: "Etichette con pax in lettere e volo ICAO a 3 lettere",
+    testo: `Nuova prenotazione
+Cliente: Mario Rossi
+Telefono: +39 333 1234567
+Data: 25/08/2026
+Ora: 14:30
+Aeroporto Napoli Capodichino -> Hotel Excelsior, Sorrento
+Volo: EZY8421
+Passeggeri: quattro
+Prezzo: 150€
+Note: bambino con seggiolino`,
+  },
 ];
 
 for (const caso of CASI) {
