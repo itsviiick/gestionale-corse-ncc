@@ -148,6 +148,10 @@ function parseTime(text: string): string | null {
   const keyed = haystack.match(/\b(?:ore|alle|all'|h)\s*(\d{1,2})[:.](\d{2})\b/i);
   if (keyed) return toTime(Number(keyed[1]), Number(keyed[2]));
 
+  // Come sopra ma senza minuti: "ore 9", "alle 9" -> si assume in punto
+  const keyedNoMinutes = haystack.match(/\b(?:ore|alle|all'|h)\s*(\d{1,2})\b(?![:.\d])/i);
+  if (keyedNoMinutes) return toTime(Number(keyedNoMinutes[1]), 0);
+
   // Solo due punti (piu sicuro: evita di confondersi con le date)
   const colon = haystack.match(/\b(\d{1,2}):(\d{2})\b/);
   if (colon) return toTime(Number(colon[1]), Number(colon[2]));
