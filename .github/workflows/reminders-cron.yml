@@ -1,0 +1,19 @@
+name: Promemoria corse
+
+on:
+  schedule:
+    # Ogni 15 minuti. GitHub esegue "best effort": in caso di ritardo puo
+    # slittare di qualche minuto, ma il periodo di tolleranza dell'app
+    # (REMINDER_GRACE_MINUTES) copre eventuali ritardi occasionali.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  chiama-promemoria:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Chiama /api/cron/reminders
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://gestionale-corse-ncc.vercel.app/api/cron/reminders
