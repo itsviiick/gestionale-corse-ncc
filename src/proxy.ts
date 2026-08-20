@@ -7,7 +7,19 @@ import { sessionOptions, type SessionData } from "@/lib/session";
 // /api/cron ha una protezione propria (CRON_SECRET): deve restare fuori da
 // qui, altrimenti il servizio di cron esterno riceve la pagina di login e i
 // promemoria non partono mai, senza alcun errore visibile.
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/auth/logout", "/api/cron"];
+// /manifest.webmanifest, /icon, /apple-icon e /icons servono la PWA: il
+// telefono li scarica per conto proprio (per l'icona sulla home, il
+// controllo di installabilita', ecc.), senza mandare il cookie di sessione.
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/cron",
+  "/manifest.webmanifest",
+  "/icon",
+  "/apple-icon",
+  "/icons",
+];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
