@@ -48,10 +48,11 @@ const LABELS_DROPOFF = [
 ];
 const LABELS_CLIENT = [
   "nome cliente", "nome passeggero", "cliente", "passeggero", "nome", "name", "referente",
+  "passenger", "guest",
 ];
 const LABELS_PHONE = ["telefono", "cellulare", "cell", "tel", "phone", "mobile", "recapito"];
 const LABELS_PRICE = ["tariffa", "prezzo", "costo", "importo", "totale", "compenso"];
-const LABELS_PAX = ["passeggeri", "pax", "persone", "numero passeggeri", "n. passeggeri"];
+const LABELS_PAX = ["passeggeri", "pax", "persone", "numero passeggeri", "n. passeggeri", "passengers"];
 const LABELS_FLIGHT = ["volo", "flight", "n. volo", "numero volo"];
 const LABELS_NOTES = ["note", "annotazioni", "richieste", "osservazioni", "note aggiuntive"];
 const LABELS_DATE = ["data", "giorno", "data servizio", "data del servizio", "date"];
@@ -83,8 +84,18 @@ function findLabeled(text: string, labels: string[]): string | null {
  * della corsa: "Hotel Duomo, il 20/08/2026 alle 14:30" -> "Hotel Duomo".
  */
 function stripMetadataTail(value: string): string {
+  // Toglie prima un orario/data incollato in coda senza virgola, es.
+  // "Hotel Sorrento ore 9:30" -> "Hotel Sorrento". Senza questo passaggio la
+  // logica sotto (che ragiona per segmenti separati da virgola) troverebbe
+  // l'orario dentro l'UNICO segmento e scarterebbe l'intero luogo, non solo
+  // l'orario.
+  const withoutTrailingTime = value.replace(
+    /\s+(?:il\s+\d{1,2}[/\-.]\d{1,2}(?:[/\-.]\d{2,4})?|alle?\s*\d{1,2}[:.]\d{2}|ore\s*\d{1,2}(?:[:.]\d{2})?|h\s*\d{1,2}[:.]\d{2})\s*$/i,
+    ""
+  );
+
   const kept: string[] = [];
-  for (const part of value.split(",")) {
+  for (const part of withoutTrailingTime.split(",")) {
     const segment = part.trim();
     const isMetadata =
       /\b\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}\b/.test(segment) ||
@@ -116,6 +127,23 @@ function parseDate(text: string): string | null {
   if (it) {
     const year = Number(it[3]);
     return toIsoDate(year < 100 ? 2000 + year : year, Number(it[2]), Number(it[1]));
+  }
+
+  // Formato italiano senza anno: "2/6" -> si assume l'anno corrente, o il
+  // prossimo se quella data e' gia' passata. Solo con "/" (non "-" ne "."):
+  // evita di interpretare un intervallo tipo "3-4 persone" come una data.
+  const itNoYear = haystack.match(/\b(\d{1,2})\/(\d{1,2})\b(?!\/)/);
+  if (itNoYear) {
+    const day = Number(itNoYear[1]);
+    const month = Number(itNoYear[2]);
+    const now = new Date();
+    const currentYear = now.getUTCFullYear();
+    const thisYear = toIsoDate(currentYear, month, day);
+    if (thisYear) {
+      const today = toIsoDate(currentYear, now.getUTCMonth() + 1, now.getUTCDate());
+      if (today && thisYear < today) return toIsoDate(currentYear + 1, month, day);
+      return thisYear;
+    }
   }
 
   // Formato esteso: 20 agosto 2026 / 20 ago 2026 / 20 agosto
@@ -209,6 +237,13 @@ function parsePrice(text: string): number | null {
     const bare = labeled.match(/(\d+(?:[.,]\d{1,2})?)/);
     if (bare) return toAmount(bare[1]);
   }
+
+  // Parola chiave in mezzo alla frase, senza simbolo di valuta ne' due punti:
+  // "Tour cantine, tariffa 300"
+  const nearKeyword = text.match(
+    /\b(?:tariffa|prezzo|costo|importo|totale|compenso)\b[^\d\n]{0,15}(\d+(?:[.,]\d{1,2})?)/i
+  );
+  if (nearKeyword) return toAmount(nearKeyword[1]);
 
   return null;
 }
@@ -319,11 +354,17 @@ function parseClientName(text: string): string | null {
   );
   if (titled) return titled[1].trim();
 
-  // Riga intera che contiene solo un nome
+  // Riga intera che contiene solo un nome, oppure un nome seguito da altri
+  // dettagli dopo una virgola: "Anna Esempio, 4 pax"
   for (const line of text.split("\n")) {
     if (/[:]/.test(line)) continue;
     const name = asPersonName(line);
     if (name) return name;
+    const beforeComma = line.split(",")[0];
+    if (beforeComma !== line) {
+      const nameBeforeComma = asPersonName(beforeComma);
+      if (nameBeforeComma) return nameBeforeComma;
+    }
   }
 
   // Nome subito dopo un'etichetta non riservata ad altri campi

@@ -50,6 +50,24 @@ Passeggeri: quattro
 Prezzo: 150€
 Note: bambino con seggiolino`,
   },
+  {
+    nome: "Messaggio informale: nome+virgola, orario attaccato, data senza anno, prezzo senza simbolo",
+    testo: `Ciao ho un cliente per te
+Laura Esempio, sono in 2
+Ritiro: Hotel Marmorata ore 10
+Data 2/6
+Tour cantine, tariffa 300`,
+  },
+  {
+    nome: "Etichette inglesi (piattaforma internazionale)",
+    testo: `New Booking Confirmed
+Passenger: Jane Cliente
+Date: 12/06/2026
+From: APT Fiumicino
+To: Hotel Hilton Sorrento
+Passengers: 3
+Price: €480.00`,
+  },
 ];
 
 for (const caso of CASI) {
